@@ -6,6 +6,9 @@ from torchvision import transforms
 from dataset import UTKFaceImageDataset, data_transforms
 from model import TransferAgeModel
 
+# --- ADDED (for plotting LR vs loss) ---
+import matplotlib.pyplot as plt
+
 # --- Configuration ---
 BATCH_SIZE = 32
 LEARNING_RATE = 0.001
@@ -21,6 +24,55 @@ else:
     DEVICE = torch.device("cpu")
 
 print(f"Using device: {DEVICE}")
+
+# --- ADDED (function to plot LR vs loss) ---
+def plot_lr_vs_loss(model, train_loader, criterion, optimizer,
+                    lr_start=1e-7, lr_end=1e-1, num_iters=200):
+    """
+    Plot learning rate vs. loss (LR range test).
+    OBS: Ændrer modelvægte – kør før rigtig træning.
+    """
+    model.train()
+
+    # Start-LR
+    optimizer.param_groups[0]["lr"] = lr_start
+    lr_mult = (lr_end / lr_start) ** (1 / num_iters)
+
+    lrs = []
+    losses = []
+
+    it = 0
+    for inputs, labels in train_loader:
+        if it >= num_iters:
+            break
+
+        inputs = inputs.to(DEVICE)
+        labels = labels.to(DEVICE)
+        labels = labels.unsqueeze(1)  # Reshape labels to [batch_size, 1]
+
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+
+        loss.backward()
+        optimizer.step()
+
+        lrs.append(optimizer.param_groups[0]["lr"])
+        losses.append(loss.item())
+
+        # Øg LR
+        optimizer.param_groups[0]["lr"] *= lr_mult
+        it += 1
+
+    # Plot
+    plt.figure()
+    plt.plot(lrs, losses)
+    plt.xscale("log")
+    plt.xlabel("Learning rate")
+    plt.ylabel("Loss (MSE)")
+    plt.title("Learning rate vs. loss")
+    plt.show()
+
 
 def main():
     # 1. Prepare Dataset
@@ -42,6 +94,9 @@ def main():
     # MSELoss is standard for Regression (Age prediction)
     criterion = nn.MSELoss() 
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+    # --- ADDED (one line call to make the plot) ---
+    plot_lr_vs_loss(model, train_loader, criterion, optimizer)
 
     # 4. Training Loop
     for epoch in range(NUM_EPOCHS):
@@ -71,7 +126,7 @@ def main():
 
         # 5. Validation Loop
         model.eval()
-        val_loss = 0.0
+        val_loss = 0.0 
         total_absolute_error = 0.0
         total_samples = 0
         
