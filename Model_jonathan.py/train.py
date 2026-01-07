@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 BATCH_SIZE = 32
 LEARNING_RATE = 0.001
 NUM_EPOCHS = 10
-DATA_DIR = "/Users/jonathankragh/Documents/GitHub/AgeClassification/data/UTKFace"
+DATA_DIR = "/Users/kasperbankler/Documents/GitHub/AgeClassification/data/UTKFace"
 
 # Select Device (Mac M1/M2, Nvidia GPU, or CPU)
 if torch.backends.mps.is_available():
