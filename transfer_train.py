@@ -4,8 +4,6 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import classification_report, confusion_matrix
 
 from dataset import UTKFaceImageDataset, train_transforms, val_transforms
 from transfer_model import TransferAgeModel
@@ -14,8 +12,10 @@ from transfer_model import TransferAgeModel
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0001
 NUM_EPOCHS = 10
-# UPDATE THIS PATH
 DATA_DIR = "/Users/kasperbankler/Documents/GitHub/AgeClassification/data/UTKFace"
+
+# Define class names for reporting
+CLASS_NAMES = {0: "Under 16", 1: "16-25", 2: "Over 25"}
 
 if torch.backends.mps.is_available():
     DEVICE = torch.device("mps")
@@ -32,7 +32,79 @@ def calculate_class_weights(dataset, device):
     weights = total / (num_classes * counts)
     return torch.tensor(weights, dtype=torch.float32).to(device)
 
+def update_plots(history):
+    plt.clf()
+    epochs_range = range(1, len(history['train_loss']) + 1)
+
+    # 1. Loss Graph
+    plt.subplot(1, 3, 1)
+    plt.plot(epochs_range, history['train_loss'], label='Train Loss')
+    plt.plot(epochs_range, history['val_loss'], label='Val Loss')
+    plt.title('Loss')
+    plt.xlabel('Epochs')
+    plt.legend()
+    plt.grid(True)
+
+    # 2. Illegal Sales Graph
+    plt.subplot(1, 3, 2)
+    plt.plot(epochs_range, history['illegal_sales_pct'], 'r-o')
+    plt.title('Illegal Sales Rate\n(% of Minors classified as 25+)')
+    plt.xlabel('Epochs')
+    plt.ylabel('Percentage')
+    plt.ylim(bottom=0)
+    plt.grid(True)
+
+    # 3. Annoyance Graph
+    plt.subplot(1, 3, 3)
+    plt.plot(epochs_range, history['annoyance_rate'], 'g-o')
+    plt.title('Customer Annoyance\n(% of Adults flagged as <25)')
+    plt.xlabel('Epochs')
+    plt.ylabel('Percentage')
+    plt.ylim(bottom=0)
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.draw()
+    plt.pause(0.1)
+
+def print_final_class_accuracy(model, loader, device):
+    """
+    Runs a final pass to calculate and print accuracy per class.
+    """
+    print("\n--- Final Evaluation by Group ---")
+    model.eval()
+    
+    # Prepare counters
+    class_correct = list(0. for i in range(3))
+    class_total = list(0. for i in range(3))
+    
+    with torch.no_grad():
+        for inputs, labels, _ in loader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            _, predicted = torch.max(outputs, 1)
+            
+            # Compare predictions to ground truth
+            c = (predicted == labels).squeeze()
+            
+            for i in range(len(labels)):
+                label = labels[i].item()
+                class_correct[label] += c[i].item()
+                class_total[label] += 1
+
+    # Print results
+    for i in range(3):
+        if class_total[i] > 0:
+            acc = 100 * class_correct[i] / class_total[i]
+            print(f"Accuracy of {CLASS_NAMES[i]:<10}: {acc:.2f}% ({int(class_correct[i])}/{int(class_total[i])})")
+        else:
+            print(f"Accuracy of {CLASS_NAMES[i]:<10}: N/A (No samples)")
+    print("---------------------------------")
+
 def main():
+    plt.ion()
+    plt.figure(figsize=(15, 5))
+
     # 1. Setup Data
     train_ds_full = UTKFaceImageDataset(root_dir=DATA_DIR, transform=train_transforms)
     val_ds_full = UTKFaceImageDataset(root_dir=DATA_DIR, transform=val_transforms)
@@ -50,21 +122,17 @@ def main():
 
     # 2. Setup Model
     model = TransferAgeModel().to(DEVICE)
-    # Note: using train_ds_full for weights approximation is fine/safer
     class_weights = calculate_class_weights(train_ds_full, DEVICE)
-    
-    print("Weights:", class_weights)
+    print("Class Weights:", class_weights)
 
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    # --- HISTORY TRACKING ---
     history = {
         'train_loss': [],
         'val_loss': [],
-        'val_acc': [],
-        'illegal_sales': [],     # Count of <18 sold as 25+
-        'annoyance_rate': []     # % of 25+ flagged as young
+        'illegal_sales_pct': [],
+        'annoyance_rate': []     
     }
 
     # 3. Training Loop
@@ -72,7 +140,6 @@ def main():
         model.train()
         running_loss = 0.0
         
-        # Note: We unpack 3 values now (image, label, age)
         for inputs, labels, _ in train_loader:
             inputs, labels = inputs.to(DEVICE), labels.to(DEVICE)
             
@@ -85,13 +152,12 @@ def main():
 
         avg_train_loss = running_loss / len(train_loader)
         
-        # --- VALIDATION LOOP ---
+        # Validation
         model.eval()
         val_loss = 0.0
-        correct = 0
-        total = 0
         
-        # Custom Stats Counters
+        # Business metrics
+        minors_total = 0
         illegal_count = 0
         adults_total = 0
         adults_flagged = 0
@@ -102,13 +168,10 @@ def main():
                 
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
-                val_loss += loss.item()
+                val_loss += loss.item() # Accumulate validation loss
                 
                 _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
                 
-                # --- CALCULATE BUSINESS STATS ---
                 pred_cpu = predicted.cpu().numpy()
                 age_cpu = raw_ages.numpy()
                 
@@ -116,74 +179,43 @@ def main():
                     p_class = pred_cpu[i]
                     true_age = age_cpu[i]
                     
-                    # 1. Illegal Sale: Actual < 18 but Predicted Class 2 (25+)
-                    if true_age < 18 and p_class == 2:
-                        illegal_count += 1
-                        
-                    # 2. Annoyance: Actual > 25 but Predicted Class 0 (<16) or 1 (16-25)
+                    # Illegal Sales (Minors < 18)
+                    if true_age < 18:
+                        minors_total += 1
+                        if p_class == 2: # Predicted 25+
+                            illegal_count += 1
+
+                    # Annoyance (Adults > 25)
                     if true_age > 25:
                         adults_total += 1
-                        if p_class < 2:
+                        if p_class < 2: # Predicted <25
                             adults_flagged += 1
 
         avg_val_loss = val_loss / len(val_loader)
-        val_accuracy = 100 * correct / total
-        annoyance_pct = 100 * adults_flagged / adults_total if adults_total > 0 else 0
         
-        # Save Stats
+        illegal_pct = (100 * illegal_count / minors_total) if minors_total > 0 else 0
+        annoyance_pct = (100 * adults_flagged / adults_total) if adults_total > 0 else 0
+        
         history['train_loss'].append(avg_train_loss)
         history['val_loss'].append(avg_val_loss)
-        history['val_acc'].append(val_accuracy)
-        history['illegal_sales'].append(illegal_count)
+        history['illegal_sales_pct'].append(illegal_pct)
         history['annoyance_rate'].append(annoyance_pct)
 
+        # PRINT UPDATE: Now includes Validation Loss
         print(f"Epoch [{epoch+1}/{NUM_EPOCHS}] "
-              f"Loss: {avg_train_loss:.4f} | "
-              f"Val Acc: {val_accuracy:.2f}% | "
-              f"Illegal Sales: {illegal_count} | "
+              f"Train Loss: {avg_train_loss:.4f} | "
+              f"Val Loss: {avg_val_loss:.4f} | "
+              f"Illegal Sales: {illegal_pct:.1f}% | "
               f"Annoyance: {annoyance_pct:.1f}%")
+        
+        update_plots(history)
 
-    # 4. Save Model & Plots
+    # 4. Final Wrap up
+    print_final_class_accuracy(model, val_loader, DEVICE) # Run final detailed report
+
     torch.save(model.state_dict(), "final_model_stats.pth")
-    print("Model saved.")
-    
-    plot_training_stats(history)
-
-def plot_training_stats(history):
-    epochs = range(1, len(history['train_loss']) + 1)
-    
-    plt.figure(figsize=(18, 5))
-
-    # Plot 1: Loss
-    plt.subplot(1, 3, 1)
-    plt.plot(epochs, history['train_loss'], 'b-o', label='Train Loss')
-    plt.plot(epochs, history['val_loss'], 'r-o', label='Val Loss')
-    plt.title('Loss Curve')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-    plt.grid(True)
-
-    # Plot 2: Illegal Sales (The most important chart)
-    plt.subplot(1, 3, 2)
-    plt.plot(epochs, history['illegal_sales'], 'g-o', linewidth=2, label='Illegal Sales (<18 sold as 25+)')
-    plt.title('Safety Check: Illegal Sales')
-    plt.xlabel('Epochs')
-    plt.ylabel('Count')
-    plt.legend()
-    plt.grid(True)
-
-    # Plot 3: Annoyance
-    plt.subplot(1, 3, 3)
-    plt.plot(epochs, history['annoyance_rate'], 'm-o', label='Adults Flagged (%)')
-    plt.title('Efficiency: Customer Annoyance')
-    plt.xlabel('Epochs')
-    plt.ylabel('Percentage %')
-    plt.legend()
-    plt.grid(True)
-
-    plt.tight_layout()
-    plt.savefig('training_stats.png') # Save it so you can put it in report
+    plt.savefig('training_metrics.png')
+    plt.ioff()
     plt.show()
 
 if __name__ == "__main__":
