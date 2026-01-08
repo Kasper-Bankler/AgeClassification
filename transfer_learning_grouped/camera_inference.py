@@ -54,7 +54,7 @@ def open_working_camera(max_index=6):
 
         ret, frame = cap.read()
         if ret and frame is not None:
-            print(f"✅ Kamera fundet på index {idx}")
+            print(f"Kamera fundet på index {idx}")
             return cap
 
         cap.release()
