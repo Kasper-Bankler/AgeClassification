@@ -15,7 +15,7 @@ BATCH_SIZE = 32
 LEARNING_RATE = 0.0001
 NUM_EPOCHS = 10
 # Update path if needed
-DATA_DIR = "C:\\Users\\kaspe\\Documents\\GitHub\\AgeClassification\\data\\UTKFace"
+DATA_DIR = "/Users/jonathankragh/Documents/GitHub/AgeClassification/data/UTKFace"
 
 # Device Setup
 if torch.backends.mps.is_available():
