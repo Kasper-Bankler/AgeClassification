@@ -44,7 +44,7 @@ class UTKFaceImageDataset(Dataset):
                     # Update lists
                     self.image_paths.append(os.path.join(root_dir, filename))
                     self.labels.append(label)
-                    self.labels.append(age)
+                    self.ages.append(age)
 
     # Function to get the length of the dataset
     def __len__(self):
@@ -61,7 +61,7 @@ class UTKFaceImageDataset(Dataset):
             image = self.transform(image)
         # Get label
         label = torch.tensor(self.labels[idx], dtype=torch.long)
-        age = torch.tensor(self.labels[idx], dtype=torch.float32)
+        age = torch.tensor(self.ages[idx], dtype=torch.float32)
         return image, label, age
     
 
