@@ -20,13 +20,11 @@ class UTKFaceImageDataset(Dataset):
 
                     # --- NEW: Convert Age to Class Index ---
                     if age < 16:
-                        label = 0  # Block (<16)
-                    elif age < 18:
-                        label = 1  # Restricted (16-17)
-                    elif age < 25:
-                        label = 2  # ID Check (18-24)
+                        label = 0  # Class 0: Block (<16)
+                    elif age <= 25:
+                        label = 1  # Class 1: Manual ID Check (16-25)
                     else:
-                        label = 3  # Approve (25+)
+                        label = 2  # Class 2: Auto-Approve (25+)
 
                     self.image_paths.append(os.path.join(root_dir, filename))
                     self.labels.append(label)

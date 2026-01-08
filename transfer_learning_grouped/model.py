@@ -26,7 +26,7 @@ class TransferAgeModel(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.3),
             # CHANGED: Output 4 classes instead of 1
-            nn.Linear(512, 4)
+            nn.Linear(512, 3)
         )
 
     def forward(self, x):
