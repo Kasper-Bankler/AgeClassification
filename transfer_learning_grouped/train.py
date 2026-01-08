@@ -15,7 +15,7 @@ BATCH_SIZE = 32
 LEARNING_RATE = 0.0001
 NUM_EPOCHS = 10
 # Update path if needed
-DATA_DIR = "C:\\Users\\kaspe\\Documents\\GitHub\\AgeClassification\\data\\UTKFace"
+DATA_DIR = "/Users/kasperbankler/Documents/GitHub/AgeClassification/data/UTKFace"
 
 # Device Setup
 if torch.backends.mps.is_available():
@@ -38,15 +38,12 @@ def calculate_class_weights(dataset, device):
     num_classes = len(counts)
 
     weights = total / (num_classes * counts)
-
-    # Convert to Tensor
     weights_tensor = torch.tensor(weights, dtype=torch.float32).to(device)
 
     print("\n--- CLASS WEIGHTS ---")
-    print(f"Class 0 (<16):   {weights[0]:.2f}")
-    print(f"Class 1 (16-17): {weights[1]:.2f} (High weight = Focus here)")
-    print(f"Class 2 (18-24): {weights[2]:.2f}")
-    print(f"Class 3 (25+):   {weights[3]:.2f}")
+    print(f"Class 0 (<16):       {weights[0]:.2f}")
+    print(f"Class 1 (16-25):     {weights[1]:.2f} (This should be high)")
+    print(f"Class 2 (25+):       {weights[2]:.2f}")
     print("---------------------")
 
     return weights_tensor
@@ -154,19 +151,18 @@ def evaluate_model(model, loader):
             all_labels.extend(labels.cpu().numpy())
 
     # Print Report
-    target_names = ['<16 (Block)', '16-17 (Beer)',
-                    '18-24 (ID Check)', '25+ (Approve)']
+    target_names = ['<16 (Block)', '16-25 (Check ID)', '25+ (Approve)']
     print(classification_report(all_labels, all_preds, target_names=target_names))
 
     # Confusion Matrix
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(10, 7))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                xticklabels=['<16', '16-17', '18-24', '25+'],
-                yticklabels=['<16', '16-17', '18-24', '25+'])
+                xticklabels=['<16', '16-25', '25+'],   # <--- FIXED
+                yticklabels=['<16', '16-25', '25+'])   # <--- FIXED
     plt.xlabel('Predicted')
     plt.ylabel('Actual')
-    plt.title('Confusion Matrix (Classification Model)')
+    plt.title('Confusion Matrix (3-Class Model)')
     plt.show()
 
 
