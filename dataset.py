@@ -16,6 +16,8 @@ class UTKFaceImageDataset(Dataset):
         # Path to images
         self.image_paths = []
         # Ages
+        self.ages = []
+        # Labels (groups)
         self.labels = []
         # Path to directories with images
         self.root_dir = root_dir
@@ -30,8 +32,18 @@ class UTKFaceImageDataset(Dataset):
                 if len(parts) == 4: # specific format check. If a file does not follow the format, skip it
                     # Extract age
                     age = int(parts[0])
+
+                     # 3-Class System
+                    if age < 16:
+                        label = 0  # <16
+                    elif age <= 25:
+                        label = 1  # 16-25
+                    else:
+                        label = 2  # 25+
+
                     # Update lists
                     self.image_paths.append(os.path.join(root_dir, filename))
+                    self.labels.append(label)
                     self.labels.append(age)
 
     # Function to get the length of the dataset
@@ -48,13 +60,22 @@ class UTKFaceImageDataset(Dataset):
         if self.transform:
             image = self.transform(image)
         # Get label
+        label = torch.tensor(self.labels[idx], dtype=torch.long)
         age = torch.tensor(self.labels[idx], dtype=torch.float32)
-        return image, age
+        return image, label, age
     
 
 # Define the transforms MobileNet expects
-data_transforms = transforms.Compose([
+val_transforms = transforms.Compose([
     transforms.Resize((224, 224)), # Resize 200 -> 224. This is the size expected by MobileNet
     transforms.ToTensor(), # Convert the image to a PyTorch Tensor
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]) # Adjust the color channels to match what MobileNet was trained on
+])
+train_transforms = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomRotation(degrees=10),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
