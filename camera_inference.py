@@ -4,11 +4,18 @@ import cv2
 import torch
 from torchvision import transforms
 
-from model import TransferAgeModel
+from transfer_model import TransferAgeModel
 
 # --- PATHS ---
+#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+#WEIGHTS_PATH = os.path.join(BASE_DIR, "class_model_weights.pth")
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-WEIGHTS_PATH = os.path.join(BASE_DIR, "class_model_weights.pth")
+WEIGHTS_PATH = os.path.join(BASE_DIR, "transfer_learning_grouped", "class_model_weights.pth")
+
+print("WEIGHTS_PATH:", WEIGHTS_PATH)
+print("EXISTS?", os.path.exists(WEIGHTS_PATH))
+
 
 print("RUNNING FILE:", os.path.abspath(__file__))
 print("WEIGHTS_PATH:", WEIGHTS_PATH)
