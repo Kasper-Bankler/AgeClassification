@@ -11,7 +11,7 @@ from transfer_model import TransferAgeModel
 # --- CONFIG ---
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0001
-NUM_EPOCHS = 10
+NUM_EPOCHS = 5
 DATA_DIR = "/Users/kasperbankler/Documents/GitHub/AgeClassification/data/UTKFace"
 
 # Define class names for reporting
