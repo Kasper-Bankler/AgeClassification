@@ -11,7 +11,7 @@ from transfer_model import TransferAgeModel
 # --- CONFIG ---
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0001
-NUM_EPOCHS = 5
+NUM_EPOCHS = 10
 DATA_DIR = "/Users/kasperbankler/Documents/GitHub/AgeClassification/data/UTKFace"
 
 # Define class names for reporting
@@ -214,7 +214,7 @@ def main():
     print_final_class_accuracy(model, val_loader, DEVICE) # Run final detailed report
 
     torch.save(model.state_dict(), "final_model_stats.pth")
-    plt.savefig('training_metrics.png')
+    plt.savefig('training_metric2.png')
     plt.ioff()
     plt.show()
 
