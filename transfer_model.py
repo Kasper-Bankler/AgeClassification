@@ -3,6 +3,8 @@ import torch.nn as nn
 from torchvision import models
 
 # Class defining the transfer learning model for age classification
+
+
 class TransferAgeModel(nn.Module):
     def __init__(self):
         # Inherit from nn.Module
@@ -25,10 +27,10 @@ class TransferAgeModel(nn.Module):
         # Overwrite the classifier with a new one for 3 classes
         self.net.classifier = nn.Sequential(
             # Dropout to prevent overfitting
-            nn.Dropout(0.3),
+            nn.Dropout(0.5),
             nn.Linear(last_channel, 512),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(0.5),
             # Output 3 classes
             nn.Linear(512, 3)
         )
