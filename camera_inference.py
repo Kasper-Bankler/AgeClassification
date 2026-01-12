@@ -9,7 +9,7 @@ from transfer_model import TransferAgeModel
 
 # --- PATHS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-WEIGHTS_PATH = os.path.join(BASE_DIR, "trained_models", "transfer_model_3_groups.pth")  # <-- ret hvis din fil hedder noget andet
+WEIGHTS_PATH = os.path.join(BASE_DIR, "trained_models", "final_transfer_model.pth")  # <-- ret hvis din fil hedder noget andet
 
 print("RUNNING FILE:", os.path.abspath(__file__))
 print("WEIGHTS_PATH:", WEIGHTS_PATH)
