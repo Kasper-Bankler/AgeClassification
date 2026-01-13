@@ -27,10 +27,10 @@ class TransferAgeModel(nn.Module):
         # Overwrite the classifier with a new one for 3 classes
         self.net.classifier = nn.Sequential(
             # Dropout to prevent overfitting
-            nn.Dropout(0.5),
+            nn.Dropout(0.3),
             nn.Linear(last_channel, 512),
             nn.ReLU(),
-            nn.Dropout(0.5),
+            nn.Dropout(0.3),
             # Output 3 classes
             nn.Linear(512, 3)
         )
