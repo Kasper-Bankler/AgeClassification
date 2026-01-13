@@ -61,7 +61,7 @@ def open_working_camera(max_index=6):
             continue
 
         # Warm-up (helpful on macOS / some webcams)
-        for _ in range(30):
+        for _ in range(10):
             cap.read()
             time.sleep(0.01)
 
