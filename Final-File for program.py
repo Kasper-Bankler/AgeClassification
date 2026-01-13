@@ -4,77 +4,63 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
 import matplotlib.pyplot as plt
 import numpy as np
-
-# ---------------- IMPORTS FRA DINE MODULER ---------------- #
 from dataset import UTKFaceImageDataset, train_transforms, val_transforms
-from camera_inference import run_webcam   # <-- webcam + face detection
+from camera_inference2 import run_webcam  # Webcam + face detection
 
 # ---------------- CONFIG ---------------- #
 DATA_DIR = "./data/UTKFace"
-IMG_SIZE = 128
+IMG_SIZE = 224
 BATCH_SIZE = 32
-EPOCHS = 10
-LEARNING_RATE = 0.0005
+EPOCHS = 7
+LEARNING_RATE = 0.0001
 VAL_SPLIT = 0.2
 MODEL_PATH = "final_age_model.pth"
 
-# Alders-klasser
-CLASS_NAMES = {
-    0: "0-15",
-    1: "16-25",
-    2: "25+"
-}
+CLASS_NAMES = {0: "0-15", 1: "16-25", 2: "25+"}
+
 # ---------------- DEVICE ---------------- #
-device = (
-    torch.device("cuda") if torch.cuda.is_available()
-    else torch.device("cpu")
-)
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 print("Using device:", device)
 
-# ==========================================================
-# 🔹 CNN MODEL (LIGGER HER – IKKE IMPORTERET)
-# ==========================================================
+# ---------------- CNN MODEL ---------------- #
 class CNN(nn.Module):
     def __init__(self, num_classes=3):
         super().__init__()
-
         self.features = nn.Sequential(
-            nn.Conv2d(3, 16, 3, padding=1),
+            nn.Conv2d(3, 28, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
 
-            nn.Conv2d(16, 32, 3, padding=1),
+            nn.Conv2d(28, 56, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
 
-            nn.Conv2d(32, 64, 3, padding=1),
+            nn.Conv2d(56, 112, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
 
-            nn.Conv2d(64, 128, 3, padding=1),
+            nn.Conv2d(112, 224, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
         )
 
-        # 🔒 Freeze første lag (transfer-agtig stabilitet)
+        # Freeze første lag
         for param in self.features[0].parameters():
             param.requires_grad = False
 
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(128 * (14) * (14), 128),
+            nn.Linear(224 * 14 * 14, 224),
             nn.ReLU(),
             nn.Dropout(0.4),
-            nn.Linear(128, num_classes)
+            nn.Linear(224, num_classes)
         )
 
     def forward(self, x):
         x = self.features(x)
         return self.classifier(x)
-    
-# ==========================================================
-# 🔹 CLASS WEIGHTS
-# ==========================================================
+
+# ---------------- CLASS WEIGHTS ---------------- #
 def calculate_class_weights(dataset):
     labels = dataset.labels
     counts = np.bincount(labels)
@@ -82,16 +68,12 @@ def calculate_class_weights(dataset):
     weights = total / (len(counts) * counts)
     return torch.tensor(weights, dtype=torch.float32).to(device)
 
-# ==========================================================
-# 🔹 TRAINING
-# ==========================================================
-# ------------------ TRAIN FUNCTION ------------------ #
+# ---------------- TRAIN FUNCTION ---------------- #
 def train():
-    plt.ion()  # interaktiv mode
-    plt.figure(figsize=(15, 5))
+    plt.ion()
+    plt.figure(figsize=(15,5))
 
     dataset = UTKFaceImageDataset(DATA_DIR, transform=train_transforms)
-
     val_size = int(len(dataset) * VAL_SPLIT)
     train_size = len(dataset) - val_size
     train_ds, val_ds = random_split(dataset, [train_size, val_size])
@@ -107,11 +89,10 @@ def train():
     criterion = nn.CrossEntropyLoss(weight=weights)
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    history = {"train_loss": [], "val_loss": [], "illegal": [], "annoyance": []}
     best_illegal = 100.0
 
     for epoch in range(EPOCHS):
-        # -------- TRAIN -------- #
+        # Training
         model.train()
         train_loss = 0
         for imgs, labels, _ in train_loader:
@@ -124,7 +105,7 @@ def train():
             train_loss += loss.item()
         train_loss /= len(train_loader)
 
-        # -------- VALIDATION -------- #
+        # Validation
         model.eval()
         val_loss = 0
         minors = illegal = adults = annoyed = 0
@@ -149,21 +130,10 @@ def train():
                             annoyed += 1
 
         val_loss /= len(val_loader)
-        illegal_pct = 100 * illegal / minors if minors else 0
-        annoy_pct = 100 * annoyed / adults if adults else 0
+        illegal_pct = 100*illegal/minors if minors else 0
+        annoy_pct = 100*annoyed/adults if adults else 0
 
-        history["train_loss"].append(train_loss)
-        history["val_loss"].append(val_loss)
-        history["illegal"].append(illegal_pct)
-        history["annoyance"].append(annoy_pct)
-
-        print(
-            f"EPOCH {epoch+1}/{EPOCHS} | "
-            f"Train Loss {train_loss:.3f} | "
-            f"Val Loss {val_loss:.3f} | "
-            f"Illegal {illegal_pct:.1f}% | "
-            f"Annoyance {annoy_pct:.1f}%"
-        )
+        print(f"EPOCH {epoch+1}/{EPOCHS} | Train Loss {train_loss:.3f} | Val Loss {val_loss:.3f} | Illegal {illegal_pct:.1f}% | Annoyance {annoy_pct:.1f}%")
 
         # Save best model
         if illegal_pct < best_illegal:
@@ -175,33 +145,42 @@ def train():
             }, MODEL_PATH)
             print("✔ Model saved")
 
-        # -------- PLOT -------- #
-        plt.clf()
-        x = range(1, len(history["train_loss"]) + 1)
-
-        plt.subplot(1, 3, 1)
-        plt.plot(x, history["train_loss"], label="Train")
-        plt.plot(x, history["val_loss"], label="Val")
-        plt.title("Loss")
-        plt.legend()
-
-        plt.subplot(1, 3, 2)
-        plt.plot(x, history["illegal"], "r-o")
-        plt.title("Illegal sales (%)")
-
-        plt.subplot(1, 3, 3)
-        plt.plot(x, history["annoyance"], "g-o")
-        plt.title("Customer annoyance (%)")
-
-        plt.tight_layout()
-        plt.pause(0.1)  # kort pause, ikke blokering
-
     plt.ioff()
-    plt.savefig("training_history.png")  # gem som fil
+    plt.savefig("training_history.png")
     print("✔ Training complete, plot saved as 'training_history.png'")
 
-# ==========================================================
-# 🔹 MAIN
-# ==========================================================
+    # ✅ Final class evaluation
+    print_final_class_accuracy(model, val_loader, device)
+
+# ---------------- FINAL CLASS ACCURACY ---------------- #
+def print_final_class_accuracy(model, loader, device):
+    """
+    Runs a final pass to calculate and print accuracy per class.
+    """
+    print("\n--- Final Evaluation by Class ---")
+    model.eval()
+    class_correct = [0]*len(CLASS_NAMES)
+    class_total = [0]*len(CLASS_NAMES)
+
+    with torch.no_grad():
+        for imgs, labels, _ in loader:
+            imgs, labels = imgs.to(device), labels.to(device)
+            outputs = model(imgs)
+            preds = outputs.argmax(dim=1)
+            for i in range(len(labels)):
+                label = labels[i].item()
+                pred = preds[i].item()
+                class_total[label] += 1
+                if label == pred:
+                    class_correct[label] += 1
+
+    for idx, cname in CLASS_NAMES.items():
+        total = class_total[idx]
+        correct = class_correct[idx]
+        acc = 100*correct/total if total else 0
+        print(f"Class {cname}: {acc:.2f}% ({correct}/{total})")
+
+# ---------------- MAIN ---------------- #
 if __name__ == "__main__":
-    run_webcam()
+    train()
+    run_webcam()  # Kører webcam direkte efter træning
