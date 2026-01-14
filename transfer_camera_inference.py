@@ -3,13 +3,38 @@ import sys
 import time
 import cv2
 import torch
+import torch.nn as nn
 from torchvision import transforms
 
-from transfer_model import TransferAgeModel
+# --- CLASS DEFINITION (Simple Model) ---
+# Defined here so the script is standalone (like TransferAgeModel in the other script)
+class CNN(nn.Module):
+    def __init__(self, num_classes=3):
+        super().__init__()
+        # Feature extractor
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 16, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2),
+            nn.Conv2d(16, 16, 3, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2)
+        )
+        # Classifier
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Dropout(0.3),
+            nn.Linear(16 * 56 * 56, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        return self.classifier(x)
 
 # --- PATHS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-WEIGHTS_PATH = os.path.join(BASE_DIR, "trained_models", "final_transfer_model.pth")  
+# Note: Using "simple_model_stats.pth" because that is what simple_model_train.py saves
+WEIGHTS_PATH = os.path.join(BASE_DIR, "trained_models", "simple_model_stats.pth")
 
 print("RUNNING FILE:", os.path.abspath(__file__))
 print("WEIGHTS_PATH:", WEIGHTS_PATH)
@@ -79,10 +104,17 @@ def main():
     device = get_device()
     print(f"Using device: {device}")
 
-    # 1) Load model + weights (must match your trained head, e.g. Linear(..., 3))
-    model = TransferAgeModel().to(device)
-    state = torch.load(WEIGHTS_PATH, map_location=device)
-    model.load_state_dict(state)
+    # 1) Load model + weights
+    model = CNN(num_classes=3).to(device)
+    
+    if os.path.exists(WEIGHTS_PATH):
+        state = torch.load(WEIGHTS_PATH, map_location=device)
+        model.load_state_dict(state)
+        print("Weights loaded successfully.")
+    else:
+        print(f"ADVARSEL: Kunne ikke finde vægte på {WEIGHTS_PATH}")
+        # We continue anyway to test camera, but predictions will be random
+    
     model.eval()
 
     preprocess = build_preprocess()

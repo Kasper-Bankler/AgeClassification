@@ -6,17 +6,24 @@ import torch
 import torch.nn as nn
 from torchvision import transforms
 
-# ---------------- CONFIG ---------------- #
-MODEL_PATH = "final_age_model.pth"
-WINDOW_NAME = "Age Recognition (press q to quit)"
-CLASS_NAMES = {
-    0: "0-15",
-    1: "16-25",
-    2: "25+"
-}
-IMG_SIZE = 224  # nu 224 pixels
+# --- CONFIGURATION ---
+# 1. REMOVE the leading slash so os.path.join works correctly
+# 2. CHECK if your file is named 'simple_model.pth' or 'simple_model_stats.pth' (default from training)
+MODEL_FILENAME = "simple_model.pth" 
+SUB_FOLDER = "trained_models"
 
-# ---------------- DEVICE ---------------- #
+# Setup paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# This joins: Base + Folder + Filename safely
+WEIGHTS_PATH = os.path.join(BASE_DIR, SUB_FOLDER, MODEL_FILENAME)
+
+print(f"Looking for weights at: {WEIGHTS_PATH}")
+
+# Classes (Must match your training labels)
+CLASS_NAMES = ['Under 16', '16-25', 'Over 25']
+WINDOW_NAME = "Simple Model Age Recognition"
+
+# --- DEVICE SETUP ---
 def get_device():
     if torch.backends.mps.is_available():
         return torch.device("mps")
@@ -27,53 +34,33 @@ def get_device():
 device = get_device()
 print(f"Using device: {device}")
 
-# ==========================================================
-# 🔹 CNN MODEL (samme som under træning)
-# ==========================================================
+# --- MODEL DEFINITION ---
 class CNN(nn.Module):
     def __init__(self, num_classes=3):
         super().__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(3, 28, 3, padding=1),
+            nn.Conv2d(3, 16, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2),
-
-            nn.Conv2d(28, 56, 3, padding=1),
+            nn.Conv2d(16, 16, 3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2),
-
-            nn.Conv2d(56, 112, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-
-            nn.Conv2d(112, 224, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
+            nn.MaxPool2d(2)
         )
-
-        # Freeze første lag (som i træning)
-        for param in self.features[0].parameters():
-            param.requires_grad = False
-
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(224 * 14 * 14, 224),  # output fra features: 128*14*14
-            nn.ReLU(),
-            nn.Dropout(0.4),
-            nn.Linear(224, num_classes)
+            nn.Dropout(0.3),
+            nn.Linear(16 * 56 * 56, num_classes)
         )
 
     def forward(self, x):
         x = self.features(x)
         return self.classifier(x)
 
-# ==========================================================
-# 🔹 PREPROCESSING
-# ==========================================================
-def build_preprocess(img_size=224):
+# --- PREPROCESSING ---
+def build_preprocess():
     return transforms.Compose([
         transforms.ToPILImage(),
-        transforms.Resize((img_size, img_size)),
+        transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize(
             mean=[0.485, 0.456, 0.406],
@@ -81,9 +68,7 @@ def build_preprocess(img_size=224):
         )
     ])
 
-# ==========================================================
-# 🔹 OPEN CAMERA
-# ==========================================================
+# --- CAMERA HANDLING ---
 def open_working_camera(max_index=6):
     if sys.platform == "darwin":
         backend = cv2.CAP_AVFOUNDATION
@@ -97,56 +82,72 @@ def open_working_camera(max_index=6):
         if not cap.isOpened():
             cap.release()
             continue
-        # Warm-up
+
         for _ in range(10):
             cap.read()
             time.sleep(0.01)
+
         ret, frame = cap.read()
         if ret and frame is not None:
-            print(f"Kamera fundet på index {idx}")
+            print(f"Camera found at index {idx}")
             return cap
         cap.release()
     return None
 
-# ==========================================================
-# 🔹 WEBCAM LOOP
-# ==========================================================
-def run_webcam():
-    # Load model
-    model = CNN().to(device)
-    checkpoint = torch.load(MODEL_PATH, map_location=device)
-    model.load_state_dict(checkpoint["model_state"])
+# --- MAIN LOOP ---
+def main():
+    # 1. Check weights
+    if not os.path.exists(WEIGHTS_PATH):
+        print(f"\n[ERROR] Weights file not found!")
+        print(f"Checked path: {WEIGHTS_PATH}")
+        print(f"Please move your trained model file into the '{SUB_FOLDER}' folder.")
+        return
+
+    # 2. Load Model
+    print("Loading Simple Model...")
+    model = CNN(num_classes=3).to(device)
+    
+    try:
+        state_dict = torch.load(WEIGHTS_PATH, map_location=device)
+        model.load_state_dict(state_dict)
+        print("Weights loaded successfully.")
+    except Exception as e:
+        print(f"Error loading weights: {e}")
+        return
+
     model.eval()
+    preprocess = build_preprocess()
 
-    preprocess = build_preprocess(img_size=IMG_SIZE)
-
+    # 3. Open Camera
     cap = open_working_camera()
     if cap is None:
-        raise RuntimeError("Kunne ikke åbne kameraet.")
+        print("Could not open any webcam.")
+        return
 
-    print("Webcam åbnet. Tryk 'q' for at lukke.")
+    print("Webcam open. Press 'q' to quit.")
 
+    # 4. Inference Loop
     with torch.no_grad():
         while True:
             ret, frame = cap.read()
             if not ret or frame is None:
-                print("Kunne ikke læse frame.")
                 break
 
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            x = preprocess(rgb).unsqueeze(0).to(device)  # [1,3,224,224]
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            input_tensor = preprocess(rgb_frame).unsqueeze(0).to(device)
 
-            logits = model(x)
+            logits = model(input_tensor)
             probs = torch.softmax(logits, dim=1)[0]
+            
             pred_idx = int(torch.argmax(probs).item())
-            conf = float(probs[pred_idx].item())
+            confidence = float(probs[pred_idx].item())
+            label_text = CLASS_NAMES[pred_idx]
 
-            label = CLASS_NAMES[pred_idx]
-            text = f"{label} | conf: {conf:.2f}"
+            display_text = f"{label_text} ({confidence:.1%})"
+            color = (0, 255, 0) if pred_idx == 2 else (0, 165, 255)
 
-            # Overlay
-            cv2.putText(frame, text, (20, 40),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(frame, display_text, (30, 50), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
             cv2.imshow(WINDOW_NAME, frame)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -155,8 +156,5 @@ def run_webcam():
     cap.release()
     cv2.destroyAllWindows()
 
-# ==========================================================
-# 🔹 MAIN
-# ==========================================================
 if __name__ == "__main__":
-    run_webcam()
+    main()
