@@ -15,7 +15,7 @@ BATCH_SIZE = 32                        # Number of images per batch
 EPOCHS = 7                             # Number of training epochs
 LEARNING_RATE = 0.0001                 # Learning rate for optimizer
 VAL_SPLIT = 0.2                        # Percentage of data used for validation
-MODEL_PATH = "./trained_mondels/final_age_model.pth"     # File to save the trained model
+MODEL_PATH = "./trained_models/final_age_model.pth"     # File to save the trained model
 
 # Class label mapping
 CLASS_NAMES = {0: "0-15", 1: "16-25", 2: "25+"}
@@ -32,21 +32,13 @@ class CNN(nn.Module):
 
         # Feature extractor: convolution + activation + pooling
         self.features = nn.Sequential(
-            nn.Conv2d(3, 28, 3, padding=1),  # Conv layer: 3 input channels (RGB)
+            nn.Conv2d(3, 32, 3, padding=1),  # Conv layer: 3 input channels (RGB)
             nn.ReLU(),                      # Non-linearity
             nn.MaxPool2d(2),                # Downsample by factor 2
 
-            nn.Conv2d(28, 56, 3, padding=1),
+            nn.Conv2d(32, 64, 3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(2),
-
-            nn.Conv2d(56, 112, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-
-            nn.Conv2d(112, 224, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
+            nn.MaxPool2d(2)
         )
 
         # Freeze the first convolutional layer to stabilize training
@@ -56,10 +48,10 @@ class CNN(nn.Module):
         # Classifier: fully connected layers
         self.classifier = nn.Sequential(
             nn.Flatten(),                   # Flatten feature maps
-            nn.Linear(224 * 14 * 14, 224),   # Fully connected layer
+            nn.Linear(64 * 56 * 56, 128),   # Fully connected layer
             nn.ReLU(),
             nn.Dropout(0.4),                # Regularization
-            nn.Linear(224, num_classes)     # Output logits for each class
+            nn.Linear(128, num_classes)     # Output logits for each class
         )
 
     def forward(self, x):
