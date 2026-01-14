@@ -5,9 +5,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
-# Import custom dataset and model
+# Import custom dataset
 from dataset import UTKFaceImageDataset, train_transforms, val_transforms
-from transfer_model import TransferAgeModel
 
 # Configuration
 BATCH_SIZE = 32
@@ -20,7 +19,6 @@ CLASS_NAMES = {0: "Under 16", 1: "16-25", 2: "Over 25"}
 
 # Manual Class Weights
 # Format: [Weight for "Under 16", Weight for "16-25", Weight for "25+"]
-# Higher numbers force the model to pay more attention to that class.
 CLASS_WEIGHTS = [2.0, 2.0, 0.5]
 
 # Device configuration
@@ -32,9 +30,41 @@ else:
     DEVICE = torch.device("cpu")
 print(f"Using Device: {DEVICE}")
 
+# ---------------- CNN MODEL DEFINITION ---------------- #
+# Kept exactly as provided in your simple_model_train.py
+
+
+class CNN(nn.Module):
+    def __init__(self, num_classes=3):
+        super().__init__()
+
+        # Feature extractor: convolution + activation + pooling
+        self.features = nn.Sequential(
+            # Conv layer: 3 input channels (RGB)
+            nn.Conv2d(3, 16, 3, padding=1),
+            nn.ReLU(),                      # Non-linearity
+            nn.MaxPool2d(2),                # Downsample by factor 2
+
+            nn.Conv2d(16, 16, 3, padding=1),
+            nn.ReLU(),                      # Non-linearity
+            nn.MaxPool2d(2)                 # Downsample by factor 2
+        )
+
+        # Classifier: fully connected layers
+        self.classifier = nn.Sequential(
+            nn.Flatten(),                 # Flatten feature maps
+            nn.Dropout(0.3),              # Regularization
+            # Output logits for each class
+            # 16 channels * 56 * 56 spatial dim (224 / 4 = 56)
+            nn.Linear(16 * 56 * 56, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)                # Extract features
+        return self.classifier(x)           # Classify features
+
+
 # Function to update plots while training the model
-
-
 def update_plots(history):
     plt.clf()
     epochs_range = range(1, len(history['train_loss']) + 1)
@@ -70,9 +100,8 @@ def update_plots(history):
     plt.draw()
     plt.pause(0.1)
 
+
 # Function to print final class accuracy
-
-
 def print_final_class_accuracy(model, loader, device):
     """
     Runs a final pass to calculate and print accuracy per class.
@@ -118,9 +147,8 @@ def print_final_class_accuracy(model, loader, device):
             f"Overall Accuracy      : {overall_acc:.2f}% ({int(total_correct)}/{int(total_samples)})")
     print("---------------------------------")
 
+
 # Main training function
-
-
 def main():
     # Initialize plotting
     plt.ion()
@@ -137,14 +165,16 @@ def main():
     split = int(0.8 * len(train_ds_full))
     train_indices = indices[:split]
     val_indices = indices[split:]
+
     train_dataset = torch.utils.data.Subset(train_ds_full, train_indices)
     val_dataset = torch.utils.data.Subset(val_ds_full, val_indices)
+
     train_loader = DataLoader(
         train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    # Setup model
-    model = TransferAgeModel().to(DEVICE)
+    # Setup model (Using Simple CNN)
+    model = CNN(num_classes=3).to(DEVICE)
 
     # Convert CLASS_WEIGHTS to tensor
     weights_tensor = torch.tensor(
@@ -244,9 +274,10 @@ def main():
 
     # Print accuracy per class after training
     print_final_class_accuracy(model, val_loader, DEVICE)
+
     # Save final model and plots
-    torch.save(model.state_dict(), "final_model_stats.pth")
-    plt.savefig('training_metric.png')
+    torch.save(model.state_dict(), "simple_model_stats.pth")
+    plt.savefig('simple_training_metric.png')
     plt.ioff()
     plt.show()
 
