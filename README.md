@@ -124,7 +124,7 @@ A lightweight custom convolutional neural network:
 - **Pooling**: MaxPool2d after each conv block
 - **Classifier**: Fully connected layer with dropout (0.3)
 - **Output**: 3 classes
-- **Parameters**: ~50K
+- **Parameters**: ~151K
 
 ### Transfer Learning (MobileNetV2)
 
@@ -161,7 +161,7 @@ AgeClassification/
 Both models track the following metrics during training:
 - **Training Loss**: Cross-entropy loss on training set
 - **Validation Loss**: Cross-entropy loss on validation set
-- **Illegal Sales Rate**: Percentage of under-18 individuals classified as 25+
+- **Illegal Sales Rate**: Percentage of under-16 individuals classified as 25+
 - **Customer Annoyance**: Percentage of 25+ individuals flagged as under-25
 
 Class weights are applied to prioritize correct classification of minors to minimize illegal sales risk.
