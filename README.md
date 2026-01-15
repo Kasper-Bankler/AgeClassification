@@ -181,21 +181,8 @@ The code automatically detects and uses the best available hardware:
 - **MPS**: Apple Silicon (M1/M2/M3 chips)
 - **CPU**: Fallback for systems without GPU acceleration
 
-## License
-
-This project is provided as-is for educational and research purposes.
-
 ## Acknowledgments
 
 - **UTKFace Dataset**: Dataset used for training and evaluation
 - **MobileNetV2**: Pretrained model from torchvision
 - **PyTorch**: Deep learning framework
-
-## Future Improvements
-
-- Fine-tune class boundaries based on use case requirements
-- Add support for additional age groups
-- Implement age regression instead of classification
-- Add data augmentation techniques
-- Export models to ONNX for deployment
-- Create web interface for easier access
