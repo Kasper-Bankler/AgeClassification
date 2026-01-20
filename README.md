@@ -1,6 +1,6 @@
 # AgeClassification
 
-A PyTorch-based age classification system that categorizes faces into three age groups: Under 16, 16-25, and Over 25. The project implements two approaches: a custom CNN model and a transfer learning model using MobileNetV2, both trained on the UTKFace dataset.
+A PyTorch-based age classification system that categorizes faces into three age groups: Under 16, 16-25, and Over 25. The project focuses on two approaches: a custom CNN model and a transfer learning model using MobileNetV2, both trained on the UTKFace dataset.
 
 ## Features
 
@@ -124,7 +124,6 @@ A lightweight custom convolutional neural network:
 - **Pooling**: MaxPool2d after each conv block
 - **Classifier**: Fully connected layer with dropout (0.3)
 - **Output**: 3 classes
-- **Parameters**: ~151K
 
 ### Transfer Learning (MobileNetV2)
 
@@ -162,7 +161,7 @@ Both models track the following metrics during training:
 - **Training Loss**: Cross-entropy loss on training set
 - **Validation Loss**: Cross-entropy loss on validation set
 - **Illegal Sales Rate**: Percentage of under-16 individuals classified as 25+
-- **Customer Annoyance**: Percentage of 25+ individuals flagged as under-25
+- **Customer Annoyance**: Percentage of 25+ individuals flagged as under 25
 
 Class weights are applied to prioritize correct classification of minors to minimize illegal sales risk.
 
@@ -180,9 +179,3 @@ The code automatically detects and uses the best available hardware:
 - **CUDA**: NVIDIA GPUs
 - **MPS**: Apple Silicon (M1/M2/M3 chips)
 - **CPU**: Fallback for systems without GPU acceleration
-
-## Acknowledgments
-
-- **UTKFace Dataset**: Dataset used for training and evaluation
-- **MobileNetV2**: Pretrained model from torchvision
-- **PyTorch**: Deep learning framework
