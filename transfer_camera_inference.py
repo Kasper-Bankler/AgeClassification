@@ -13,20 +13,22 @@ class CNN(nn.Module):
         super().__init__()
         # Feature extractor
         self.features = nn.Sequential(
-            nn.Conv2d(3, 16, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
+            nn.Conv2d(3, 16, 3, padding=1),  # Convolution layer
+            nn.ReLU(),                       # Activation function
+            nn.MaxPool2d(2),                 # Reduce image size
+            
             nn.Conv2d(16, 16, 3, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2)
         )
-        # Classifier
+        # Classifier, this converts the different features into classes that are scored
         self.classifier = nn.Sequential(
             nn.Flatten(),
             nn.Dropout(0.3),
             nn.Linear(16 * 56 * 56, num_classes)
         )
 
+        # This pushes it through the network
     def forward(self, x):
         x = self.features(x)
         return self.classifier(x)
@@ -34,17 +36,24 @@ class CNN(nn.Module):
 # --- PATHS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Note: Using "simple_model_stats.pth" because that is what simple_model_train.py saves
+# Path to the trained model weights
 WEIGHTS_PATH = os.path.join(BASE_DIR, "trained_models", "simple_model_stats.pth")
 
+# Info for debugging
 print("RUNNING FILE:", os.path.abspath(__file__))
 print("WEIGHTS_PATH:", WEIGHTS_PATH)
 print("EXISTS?", os.path.exists(WEIGHTS_PATH))
 
 # --- UI / LABELS ---
+
+# Name of the windows title
 WINDOW_NAME = "Age Recognition (press q to quit)"
+# Class names for classification
 CLASS_NAMES = ['<16 (Block)', '16-25 (ID Check)', '>25 (Approve)']
 
+# ---------------- DEVICE SETUP ----------------
 
+# Selecting of the best device for the program model
 def get_device():
     if torch.backends.mps.is_available():
         return torch.device("mps")
@@ -52,19 +61,22 @@ def get_device():
         return torch.device("cuda")
     return torch.device("cpu")
 
-
+# ---------------- PREPROCESSING ----------------
+# Here it prepares the image before the model begins
 def build_preprocess():
     return transforms.Compose([
         transforms.ToPILImage(),
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        transforms.Normalize(
+        transforms.Resize((224, 224)),  # Resize the image
+        transforms.ToTensor(),          # Converting to tensor 
+        transforms.Normalize(           # Normalize the different values
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225]
         )
     ])
 
 
+# ---------------- CAMERA HANDLING ----------------
+# Find webcam
 def open_working_camera(max_index=6):
     """
     Cross-platform camera open:
@@ -79,6 +91,7 @@ def open_working_camera(max_index=6):
     else:
         backend = 0  # default backend on Linux
 
+        # Trying indexs for webcam
     for idx in range(max_index + 1):
         cap = cv2.VideoCapture(idx, backend) if backend != 0 else cv2.VideoCapture(idx)
         if not cap.isOpened():
@@ -99,7 +112,7 @@ def open_working_camera(max_index=6):
 
     return None
 
-
+# ---------------- MAIN PROGRAM ----------------
 def main():
     device = get_device()
     print(f"Using device: {device}")
@@ -115,7 +128,7 @@ def main():
         print(f"ADVARSEL: Kunne ikke finde vægte på {WEIGHTS_PATH}")
         # We continue anyway to test camera, but predictions will be random
     
-    model.eval()
+    model.eval()   # Evaluation mode
 
     preprocess = build_preprocess()
 
@@ -131,7 +144,7 @@ def main():
     print("Webcam åbnet. Tryk 'q' for at lukke.")
 
     # 3) Loop
-    with torch.no_grad():
+    with torch.no_grad():   # Disable gradients for faster program
         while True:
             ret, frame = cap.read()
             if not ret or frame is None:
@@ -148,22 +161,24 @@ def main():
             pred_idx = int(torch.argmax(probs).item())
             conf = float(probs[pred_idx].item())
 
+            # Get prediction
             label = CLASS_NAMES[pred_idx] if pred_idx < len(CLASS_NAMES) else f"Class {pred_idx}"
             text = f"{label} | conf: {conf:.2f}"
 
-            # Overlay
+            # Put text predictions on the window with the webcam
             cv2.putText(frame, text, (20, 40),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             cv2.imshow(WINDOW_NAME, frame)
 
-            # Quit
+            # Quit the running program
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-
+    
+    # Close the webcam and close the window
     cap.release()
     cv2.destroyAllWindows()
 
-
+# Run the program
 if __name__ == "__main__":
     main()
