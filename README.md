@@ -70,7 +70,7 @@ python simple_train.py
 - Epochs: 10
 - Class weights: [2.0, 2.0, 0.5] (weighted to focus on minors)
 
-The trained model will be saved as `simple_model_stats.pth` with training metrics visualized in `simple_training_metric.png`.
+The trained model will be saved as `simple_model.pth` with training metrics visualized in `simple_training_metric.png`.
 
 #### Transfer Learning Model
 
@@ -87,7 +87,7 @@ python transfer_train.py
 - Learning rate: 0.0001
 - Epochs: 10
 
-The trained model will be saved as `final_model_stats.pth` with training metrics in `training_metric.png`.
+The trained model will be saved as `transfer_model.pth` with training metrics in `training_metric.png`.
 
 ### Real-time Inference
 
@@ -99,7 +99,7 @@ Run age classification using the simple CNN model with your webcam:
 python simple_camera_inference.py
 ```
 
-Make sure your trained model file (`simple_model.pth` or `simple_model_stats.pth`) is in the `trained_models/` folder.
+Make sure your trained model file is in the `trained_models/` folder.
 
 #### Transfer Model Inference
 
