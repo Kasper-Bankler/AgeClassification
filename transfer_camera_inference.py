@@ -5,39 +5,13 @@ import cv2
 import torch
 import torch.nn as nn
 from torchvision import transforms
-
-# --- CLASS DEFINITION (Simple Model) ---
-# Defined here so the script is standalone (like TransferAgeModel in the other script)
-class CNN(nn.Module):
-    def __init__(self, num_classes=3):
-        super().__init__()
-        # Feature extractor
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 16, 3, padding=1),  # Convolution layer
-            nn.ReLU(),                       # Activation function
-            nn.MaxPool2d(2),                 # Reduce image size
-            
-            nn.Conv2d(16, 16, 3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2)
-        )
-        # Classifier, this converts the different features into classes that are scored
-        self.classifier = nn.Sequential(
-            nn.Flatten(),
-            nn.Dropout(0.3),
-            nn.Linear(16 * 56 * 56, num_classes)
-        )
-
-        # This pushes it through the network
-    def forward(self, x):
-        x = self.features(x)
-        return self.classifier(x)
+from transfer_model import TransferAgeModel
 
 # --- PATHS ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Note: Using "simple_model_stats.pth" because that is what simple_model_train.py saves
 # Path to the trained model weights
-WEIGHTS_PATH = os.path.join(BASE_DIR, "trained_models", "simple_model_stats.pth")
+WEIGHTS_PATH = os.path.join(BASE_DIR, "trained_models", "transfer_model.pth")
 
 # Info for debugging
 print("RUNNING FILE:", os.path.abspath(__file__))
@@ -117,16 +91,16 @@ def main():
     device = get_device()
     print(f"Using device: {device}")
 
-    # 1) Load model + weights
-    model = CNN(num_classes=3).to(device)
+    # 1) Load the TRANSFER model
+    model = TransferAgeModel().to(device) # Initialize the correct architecture
     
     if os.path.exists(WEIGHTS_PATH):
         state = torch.load(WEIGHTS_PATH, map_location=device)
         model.load_state_dict(state)
-        print("Weights loaded successfully.")
+        print("Transfer Model Weights loaded successfully.")
     else:
-        print(f"ADVARSEL: Kunne ikke finde vægte på {WEIGHTS_PATH}")
-        # We continue anyway to test camera, but predictions will be random
+        print(f"ERROR: Could not find weights at {WEIGHTS_PATH}")
+        return
     
     model.eval()   # Evaluation mode
 

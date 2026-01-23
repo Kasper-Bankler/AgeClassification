@@ -7,8 +7,6 @@ import torch.nn as nn
 from torchvision import transforms
 
 # --- CONFIGURATION ---
-# 1. REMOVE the leading slash so os.path.join works correctly
-# 2. CHECK if your file is named 'simple_model.pth' or 'simple_model_stats.pth' (default from training)
 MODEL_FILENAME = "simple_model.pth" 
 SUB_FOLDER = "trained_models"
 

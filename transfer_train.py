@@ -13,7 +13,7 @@ from transfer_model import TransferAgeModel
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0001
 NUM_EPOCHS = 10
-DATA_DIR = "C:\\Users\\kaspe\\Documents\\GitHub\\AgeClassification\\data\\UTKFace"
+DATA_DIR = "./data/UTKFace/"
 
 # Define class names
 CLASS_NAMES = {0: "Under 16", 1: "16-25", 2: "Over 25"}
@@ -245,7 +245,7 @@ def main():
     # Print accuracy per class after training
     print_final_class_accuracy(model, val_loader, DEVICE)
     # Save final model and plots
-    torch.save(model.state_dict(), "final_model_stats.pth")
+    torch.save(model.state_dict(), "transfer_model.pth")
     plt.savefig('training_metric.png')
     plt.ioff()
     plt.show()

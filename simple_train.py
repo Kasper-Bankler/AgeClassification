@@ -12,7 +12,7 @@ from dataset import UTKFaceImageDataset, train_transforms, val_transforms
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0001
 NUM_EPOCHS = 10
-DATA_DIR = "C:\\Users\\kaspe\\Documents\\GitHub\\AgeClassification\\data\\UTKFace"
+DATA_DIR = "./data/UTKFace/"
 
 # Define class names
 CLASS_NAMES = {0: "Under 16", 1: "16-25", 2: "Over 25"}
@@ -276,7 +276,7 @@ def main():
     print_final_class_accuracy(model, val_loader, DEVICE)
 
     # Save final model and plots
-    torch.save(model.state_dict(), "simple_model_stats.pth")
+    torch.save(model.state_dict(), "simple_model.pth")
     plt.savefig('simple_training_metric.png')
     plt.ioff()
     plt.show()
